@@ -3,20 +3,22 @@ module Touchpoints
     extend ActiveSupport::Concern
 
     included do
-      before_action :track_touchpoints
+      before_action :_track_touchpoints
     end
 
-    def track_touchpoints
+    def _track_touchpoints
       return if request.domain == domain_from(request.referer.to_s)
 
-      touchpoints = Array(session[:touchpoints])
+      touchpoints = Array(session[@@session_name])
       touchpoints = keep_only_recent(touchpoints)
       touchpoints = add_if_different(touchpoints)
 
       info("Touchpoints: #{touchpoints.inspect}")
 
-      session[:touchpoints] = touchpoints
+      session[@@session_name] = touchpoints
     end
+
+    private
 
     def domain_from(string)
       uri = URI.parse string
@@ -31,7 +33,7 @@ module Touchpoints
 
     def add_if_different(touchpoints)
       last_touchpoint = Hash(touchpoints.last)
-      utm_params = params.permit('utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_uid').to_h
+      utm_params = params.permit(*@@utm_params).to_h
 
       new_touchpoint = { utm_params: utm_params, referer: request.referer, touched_at: Time.current }
       info("Touchpoint (new): #{new_touchpoint.inspect}")
@@ -46,6 +48,8 @@ module Touchpoints
     end
 
     def info(message)
+      return unless @@logging
+
       Rails.logger.info message
     end
   end

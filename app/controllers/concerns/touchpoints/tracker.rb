@@ -12,15 +12,14 @@ module Touchpoints
       touchpoints = Array(session[@@session_name])
       touchpoints = keep_only_recent(touchpoints)
       touchpoints = add_if_different(touchpoints)
+      touchpoints = persist_if_logged_in(touchpoints)
 
-      info("Touchpoints: #{touchpoints.inspect}")
-
-      session[@@session_name] = touchpoints
+      session[@@session_name] = touchpoints.last(@@capacity)
     end
 
     private
 
-    def domain_from(string)
+    def domain_from(string) # TODO: come up with a more resilient way of extracting the domain
       uri = URI.parse string
       return unless uri.host
 
@@ -39,12 +38,40 @@ module Touchpoints
       info("Touchpoint (new): #{new_touchpoint.inspect}")
       info("Touchpoint (last): #{last_touchpoint.inspect}")
 
-      if new_touchpoint[:utm_params] != last_touchpoint[:utm_params] && new_touchpoint[:referer] != last_touchpoint[:referer]
+      if different_touchpoints?(new_touchpoint, last_touchpoint)
         touchpoints << new_touchpoint
         info('Touchpoint added!')
       end
 
+      info("Touchpoints: #{touchpoints.inspect}")
+
       touchpoints
+    end
+
+    def persist_if_logged_in(touchpoints)
+      return touchpoints unless logged_in?
+
+      last_touchpoint_persisted = @@model.constantize.where(@@model_foreign_id => user_id).last
+      last_touchpoint_attributes = last_touchpoint_persisted ? last_touchpoint_persisted.attributes.slice(:utm_params, :referer) : {}
+      touchpoints.each do |touchpoint|
+        next if !different_touchpoints?(touchpoint, last_touchpoint_attributes)
+        @@model.constantize.new(touchpoint).save
+        last_touchpoint_persisted = nil
+      end
+
+      []
+    end
+
+    def logged_in?
+      respond_to?(@@current_user_method) && send(@@current_user_method).present?
+    end
+
+    def user_id
+      send(@@current_user_method).send(@@model_foreign_id)
+    end
+
+    def different_touchpoints?(a, b)
+      a[:utm_params] != b[:utm_params] && a[:referer] != b[:referer]
     end
 
     def info(message)

@@ -10,9 +10,9 @@ module Touchpoints
       return if request.domain == domain_from(request.referer.to_s)
 
       touchpoints = Array(session[@@session_name])
-      touchpoints = keep_only_recent(touchpoints)
-      touchpoints = add_if_different(touchpoints)
-      touchpoints = persist_if_logged_in(touchpoints)
+                      .then(&method(:keep_only_recent))
+                      .then(&method(:add_if_different))
+                      .then(&method(:persist_if_logged_in))
 
       session[@@session_name] = touchpoints.last(@@capacity)
     end

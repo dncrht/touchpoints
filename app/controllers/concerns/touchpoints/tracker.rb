@@ -10,14 +10,12 @@ module Touchpoints
       return if request.domain == domain_from(request.referer.to_s)
 
       touchpoints = Array(session[:touchpoints])
-      touchpoints.select! { |touchpoint| touchpoint['touched_at'] > 60.days.ago }
+      touchpoints = keep_only_recent(touchpoints)
+      touchpoints = add_if_different(touchpoints)
 
-      utm_params = params.permit('utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_uid').to_h
-      touchpoints << { utm_params: utm_params, referer: request.referer, touched_at: Time.current }
+      info("Touchpoints: #{touchpoints.inspect}")
 
       session[:touchpoints] = touchpoints
-
-      puts touchpoints.inspect
     end
 
     def domain_from(string)
@@ -25,6 +23,30 @@ module Touchpoints
       return unless uri.host
 
       uri.host.split('.').reverse[0..2].reverse.join('.')
+    end
+
+    def keep_only_recent(touchpoints)
+      touchpoints.select { |touchpoint| touchpoint['touched_at'] > 60.days.ago }
+    end
+
+    def add_if_different(touchpoints)
+      last_touchpoint = Hash(touchpoints.last)
+      utm_params = params.permit('utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'utm_uid').to_h
+
+      new_touchpoint = { utm_params: utm_params, referer: request.referer, touched_at: Time.current }
+      info("Touchpoint (new): #{new_touchpoint.inspect}")
+      info("Touchpoint (last): #{last_touchpoint.inspect}")
+
+      if new_touchpoint[:utm_params] != last_touchpoint[:utm_params] && new_touchpoint[:referer] != last_touchpoint[:referer]
+        touchpoints << new_touchpoint
+        info('Touchpoint added!')
+      end
+
+      touchpoints
+    end
+
+    def info(message)
+      Rails.logger.info message
     end
   end
 end

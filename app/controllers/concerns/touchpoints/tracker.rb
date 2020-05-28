@@ -9,12 +9,12 @@ module Touchpoints
     def _track_touchpoints
       return if request.domain == domain_from(request.referer.to_s)
 
-      touchpoints = Array(session[@@session_name])
+      touchpoints = Array(session[get(:session_name)])
                       .then(&method(:keep_only_recent))
                       .then(&method(:add_if_different))
                       .then(&method(:persist_if_logged_in))
 
-      session[@@session_name] = touchpoints.last(@@capacity)
+      session[get(:session_name)] = touchpoints.last(get(:capacity))
     end
 
     private
@@ -32,20 +32,20 @@ module Touchpoints
 
     def add_if_different(touchpoints)
       last_touchpoint = Hash(touchpoints.last)
-      utm_params = params.permit(*@@utm_params).to_h
+      utm_params = params.permit(*get(:utm_params)).to_h
 
       new_touchpoint = { utm_params: utm_params, referer: request.referer, touched_at: Time.current }
-      new_touchpoint[@@model_foreign_id] = user_id if logged_in?
+      new_touchpoint[get(:model_foreign_id)] = user_id if logged_in?
 
-      info("Touchpoint (new): #{new_touchpoint.inspect}")
-      info("Touchpoint (last): #{last_touchpoint.inspect}")
+      Touchpoints.debug("Touchpoint (new): #{new_touchpoint.inspect}")
+      Touchpoints.debug("Touchpoint (last): #{last_touchpoint.inspect}")
 
       if different_touchpoints?(new_touchpoint, last_touchpoint)
         touchpoints << new_touchpoint
-        info('Touchpoint added!')
+        Touchpoints.debug('Touchpoint added!')
       end
 
-      info("Touchpoints: #{touchpoints.inspect}")
+      Touchpoints.debug("Touchpoints: #{touchpoints.inspect}")
 
       touchpoints
     end
@@ -53,11 +53,11 @@ module Touchpoints
     def persist_if_logged_in(touchpoints)
       return touchpoints unless logged_in?
 
-      last_touchpoint_persisted = @@model.constantize.where(@@model_foreign_id => user_id).last
+      last_touchpoint_persisted = get(:model).constantize.where(get(:model_foreign_id) => user_id).last
       last_touchpoint_attributes = last_touchpoint_persisted ? last_touchpoint_persisted.attributes.slice(:utm_params, :referer) : {}
       touchpoints.each do |touchpoint|
         next if !different_touchpoints?(touchpoint, last_touchpoint_attributes)
-        @@model.constantize.new(touchpoint).save
+        get(:model).constantize.new(touchpoint).save
         last_touchpoint_persisted = nil
       end
 
@@ -65,21 +65,19 @@ module Touchpoints
     end
 
     def logged_in?
-      respond_to?(@@current_user_method) && send(@@current_user_method).present?
+      respond_to?(get(:current_user_method)) && send(get(:current_user_method)).present?
     end
 
     def user_id
-      send(@@current_user_method).send(@@model_id)
+      send(get(:current_user_method)).send(get(:model_id))
     end
 
     def different_touchpoints?(a, b)
       a[:utm_params] != b[:utm_params] && a[:referer] != b[:referer]
     end
 
-    def info(message)
-      return unless @@logging
-
-      Rails.logger.info message
+    def get(option)
+      Touchpoints.get(option)
     end
   end
 end

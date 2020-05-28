@@ -3,7 +3,7 @@ module Touchpoints
     extend ActiveSupport::Concern
 
     included do
-      before_action :_track_touchpoints
+      after_action :_track_touchpoints
     end
 
     def _track_touchpoints

@@ -35,6 +35,8 @@ module Touchpoints
       utm_params = params.permit(*@@utm_params).to_h
 
       new_touchpoint = { utm_params: utm_params, referer: request.referer, touched_at: Time.current }
+      new_touchpoint[@@model_foreign_id] = user_id if logged_in?
+
       info("Touchpoint (new): #{new_touchpoint.inspect}")
       info("Touchpoint (last): #{last_touchpoint.inspect}")
 
@@ -67,7 +69,7 @@ module Touchpoints
     end
 
     def user_id
-      send(@@current_user_method).send(@@model_foreign_id)
+      send(@@current_user_method).send(@@model_id)
     end
 
     def different_touchpoints?(a, b)

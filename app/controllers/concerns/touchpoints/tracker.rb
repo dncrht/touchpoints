@@ -31,7 +31,7 @@ module Touchpoints
     end
 
     def add_if_different(touchpoints)
-      return touchpoints if request.domain == domain_from(request.referer.to_s)
+      return touchpoints if domain_from(request.original_url) == domain_from(request.referer.to_s)
 
       last_touchpoint = Hash(touchpoints.last)
       utm_params = params.permit(*get(:utm_params)).to_h

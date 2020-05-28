@@ -12,11 +12,25 @@ channel we'd better put our money on.
 Usually, the attributed channel is the first touchpoint found 1 month after the user signed up (or any other event we decide).
 
 ```
-bin/rails generate migration CreateTouchpoints user_entity_id:uuid utm_params:jsonb referer:string touched_at:timestamp
+bin/rails generate migration CreateTouchpoints user_entity_id:uuid utm_params:jsonb referer:string created_at:timestamp
 ```
 
-If we have several hosts with same domain operating as a whole, we must share the session cookie between them. Eg:
+If we have several hosts with same domain operating as a whole, we must share the session cookie between them. In your `config/initializers/session_store.rb`:
 
 ```ruby
 Rails.application.config.session_store :cookie_store, key: '_creditspring_session', domain: ENV.fetch('DOMAIN', 'localhost')
+```
+
+In your ApplicationController:
+```ruby
+include Touchpoints::Tracker
+```
+
+Configure the gem, in `config/initializers/touchpoints.rb`:
+```ruby
+Touchpoints.configure do |config|
+  config.set :logging, true
+  config.set :model_id, :entity_id
+  config.set :model_foreign_id, :user_entity_id
+end
 ```

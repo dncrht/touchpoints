@@ -6,6 +6,8 @@
 /pkg/
 /spec/reports/
 /tmp/
+/spec/dummy/log
+/spec/dummy/db
 
 Gemfile.lock
 
